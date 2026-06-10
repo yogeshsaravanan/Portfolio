@@ -179,46 +179,6 @@ export default function Portfolio({ initialTheme = "dark" }) {
         </div>
       </section>
 
-      {/* UPGRADED SECTION 4: LANDO-STYLE TRULY OVERLAPPING FAN CAROUSEL */}
-      {/* <section id="beyond" style={{ ...currentStyles.section, textAlign: "center", overflow: "hidden" }}>
-        <div style={{ ...currentStyles.sectionHeader, textAlign: "center" }}>
-          <span style={currentStyles.badge}>Perspective Layout</span>
-          <h2 style={currentStyles.h2}>On Socials</h2>
-        </div>
-        
-        <div style={currentStyles.fanViewport}>
-          <div style={currentStyles.fanContainer}>
-            {imageDeck.map((card, idx) => {
-              const isHovered = hoveredCard === card.id;
-              
-              // Custom layered stack calculations mimic the precise focal distribution from the screenshot
-              const activeZIndex = isHovered ? 500 : 10 + (idx <= 2 ? idx : imageDeck.length - idx);
-              const computedTransform = `
-                translateX(${card.translateX}px) 
-                translateY(${isHovered ? card.translateY - 35 : card.translateY}px) 
-                rotate(${isHovered ? 0 : card.rotation}deg) 
-                scale(${isHovered ? 1.15 : 1})
-              `;
-
-              return (
-                <div
-                  key={card.id}
-                  onMouseEnter={() => setHoveredCard(card.id)}
-                  onMouseLeave={() => setHoveredCard(null)}
-                  style={{
-                    ...currentStyles.fanCard,
-                    backgroundImage: `url(${card.img})`,
-                    transform: computedTransform,
-                    zIndex: activeZIndex,
-                    boxShadow: isHovered ? "0 40px 70px rgba(0,0,0,0.65)" : "0 15px 35px rgba(0,0,0,0.25)",
-                  }}
-                />
-              );
-            })}
-          </div>
-        </div>
-      </section> */}
-
       <section id="beyond" style={currentStyles.fanViewport}>
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <span style={currentStyles.badge}>Perspective Layout</span>
