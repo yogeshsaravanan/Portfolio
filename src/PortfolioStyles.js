@@ -16,7 +16,7 @@ const baseStyles = {
     padding: "var(--nav-padding, 2rem 4rem)", 
     display: "flex", flexDirection: "var(--nav-dir, row)", 
     justifyContent: "space-between", alignItems: "center", 
-    zIndex: 1000, boxSizing: "border-box", gap: "1rem" 
+    zIndex: 1000, boxSizing: "border-box", gap: "1rem",
   },
   logo: { fontWeight: 900, letterSpacing: "-1px" },
   navLinks: { display: "flex", gap: "var(--nav-gap, 2rem)", alignItems: "center", flexWrap: "wrap", justifyContent: "center" },
@@ -94,7 +94,8 @@ export const styles = {
   dark: {
     ...baseStyles,
     body: { ...baseStyles.body, backgroundColor: "#080808", color: "#ffffff", "--accent": "#ff4d00", "--text-muted": "#888" },
-    nav: { ...baseStyles.nav, background: "linear-gradient(to bottom, #080808 50%, transparent)" },
+    // nav: { ...baseStyles.nav, background: "linear-gradient(to bottom, #080808 50%, transparent)" },
+    nav: { ...baseStyles.nav, background: "transparent" },
     link: { ...baseStyles.link, color: "#777" },
     toggleButton: { background: "#111", border: "1px solid #ff4d00", color: "#ff4d00", padding: "0.5rem 1.2rem", borderRadius: "20px", cursor: "pointer", fontWeight: 700, fontSize: "0.8rem" },
     badge: { ...baseStyles.badge, color: "#ff4d00" },
@@ -132,7 +133,7 @@ export const styles = {
   light: {
     ...baseStyles,
     body: { ...baseStyles.body, backgroundColor: "#f8f9fa", color: "#111827", "--accent": "#0055ff", "--text-muted": "#4b5563" },
-    nav: { ...baseStyles.nav, background: "linear-gradient(to bottom, #f8f9fa 50%, transparent)" },
+    nav: { ...baseStyles.nav, background: "ransparent" },
     link: { ...baseStyles.link, color: "#6b7280" },
     toggleButton: { background: "#fff", border: "1px solid #0055ff", color: "#0055ff", padding: "0.5rem 1.2rem", borderRadius: "20px", cursor: "pointer", fontWeight: 700, fontSize: "0.8rem" },
     badge: { ...baseStyles.badge, color: "#0055ff" },

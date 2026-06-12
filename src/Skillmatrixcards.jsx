@@ -170,7 +170,7 @@ export default function SkillMatrixCards({ skillsMatrix, currentStyles, theme })
   });
 
   return (
-    <section ref={sectionRef} style={{ ...S.section, backgroundColor: stageBg, transition: "background-color 0.4s ease" }}>
+    <section ref={sectionRef} style={{ ...S.section,  transition: "background-color 0.4s ease" }}>
       <div style={S.stickyStage} ref={stageRef}>
 
         {/* Massive Lusion-scale headline BEHIND the deck */}
