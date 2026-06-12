@@ -1,0 +1,195 @@
+/* -------------------------------------------------------------
+   ♠️ MULTI-AXIS 3D PLAYING CARD ENGINE STYLES
+------------------------------------------------------------- */
+.skills-deck-wrapper {
+  display: grid;
+  grid-template-columns: var(--deck-cols, repeat(4, 1fr));
+  gap: var(--deck-gap, 2rem);
+  width: 100%;
+  padding: 2rem 0;
+  perspective: 1200px; /* Establishes the 3D depth field */
+}
+
+.playing-card-container {
+  background-color: transparent;
+  height: 480px;
+  width: 100%;
+  perspective: 1000px;
+}
+
+/* 3D Core Flipper Body Configuration */
+.playing-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.7s cubic-bezier(0.15, 0.85, 0.35, 1);
+  transform-style: preserve-3d;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+}
+
+/* Spin interaction trigger on hover state */
+.playing-card-container:hover .playing-card-inner {
+  transform: rotateY(180deg);
+}
+
+.playing-card-front, .playing-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden; /* Safeguards Safari layout layers */
+  backface-visibility: hidden;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+/* 🔷 FRONT FACE DESIGN: Royal Blue Layout Pattern */
+.playing-card-front {
+  background-color: #0055ff; /* Royal Blue Background Engine */
+  color: #ffffff;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.card-vector-border {
+  width: 100%;
+  height: 100%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 14px;
+  box-sizing: border-box;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-vector-geometric-pattern {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Linear geometric matrix detailing design decoration */
+.card-vector-geometric-pattern::before {
+  content: '';
+  position: absolute;
+  top: 10%; left: 10%; right: 10%; bottom: 10%;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  transform: rotate(45deg);
+}
+
+.card-central-diamond {
+  width: 80px;
+  height: 80px;
+  border: 2px solid #ffffff;
+  transform: rotate(45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0055ff;
+  z-index: 2;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+.card-central-logo {
+  transform: rotate(-45deg); /* Counter-rotates text characters upright */
+  font-size: 2.25rem;
+  font-weight: 900;
+  font-family: system-ui, sans-serif;
+  letter-spacing: -1px;
+}
+
+/* ⬜ BACK FACE DESIGN: White Minimalist Deck Layout */
+.playing-card-back {
+  background-color: #ffffff;
+  color: #111827;
+  transform: rotateY(180deg);
+  padding: 2.5rem 2rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Playing Card UI Layout Coordinates Headers/Footers */
+.card-suit-header {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.card-suit-footer {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+  transform: rotate(180deg); /* 180-degree inverted design flip */
+}
+
+.suit-title {
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #111827;
+}
+
+.suit-mini-icon {
+  font-size: 0.9rem;
+  color: #0055ff; /* High-contrast indicator match accent color */
+  margin-top: 2px;
+}
+
+/* Vertical Skills Structural Payload */
+.card-skills-payload-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: auto 0;
+  padding: 1rem 0;
+  text-align: left;
+}
+
+.card-payload-item {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #374151;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+}
+
+/* 📱 RESPONSIVE LAYOUT BREAKPOINTS INTERCEPT MATRIX */
+:root {
+  --deck-cols: repeat(4, 1fr);
+  --deck-gap: 2rem;
+}
+
+@media (max-width: 1100px) {
+  :root { --deck-cols: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --deck-cols: 1fr; /* Stacks layout perfectly on mobile display sizes */
+    --deck-gap: 1.5rem;
+  }
+  .playing-card-container {
+    height: 420px; /* Saves vertical screen real estate on viewports */
+  }
+}

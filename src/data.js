@@ -6,18 +6,63 @@
     { title: "Community Hub", angle: 24, xOffset: 180, yOffset: 60, img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400" },
   ];
 
+//   const skillsMatrix = [
+//   {
+//     category: "STRATEGY",
+//     items: [
+//       "Digital Experience Strategy",
+//       "Technology Strategy",
+//       "Creative Direction",
+//       "Discovery",
+//       "Research",
+//     ],
+//   },
+//   {
+//     category: "CREATIVE",
+//     items: ["Art Direction", "UX/UI Design", "Motion Design", "Interactive Design", "Illustration"],
+//   },
+//   {
+//     category: "TECH",
+//     items: [
+//       "WebGL Development",
+//       "Front End Development",
+//       "Unity / Unreal",
+//       "Interactive Installations",
+//       "AR and VR Experiences",
+//     ],
+//   },
+//   {
+//     category: "PRODUCTION",
+//     items: [
+//       "Procedural Modeling",
+//       "3D Asset Creation",
+//       "3D Optimization",
+//       "Animation",
+//       "3D Pipeline Development",
+//     ],
+//   },
+// ];
+
   export const skillsMatrix = [
     {
       category: "Frontend Architecture",
-      items: ["React / Next.js (90%)", "TypeScript (85%)", "TailwindCSS (95%)", "Redux Toolkit", "HTML5 Canvas", "Framer Motion"],
+      items: ["React ", "TypeScript ", "Redux Toolkit", "HTML5 Canvas"],
     },
     {
       category: "Backend & Systems",
-      items: ["Node.js / Express (80%)", "GraphQL / APIs (75%)", "PostgreSQL (70%)", "MongoDB", "Redis Layers"],
+      items: ["Python","Node.js","FastAPI", "Flask", "PostgreSQL", "MongoDB", "GraphDB","InfluxDB", "Redis Layers",],
     },
     {
       category: "Tools & Deployment",
-      items: ["Git & CI/CD (88%)", "Docker (65%)", "Figma (75%)", "Vercel Optimization", "Webpack"],
+      items: ["Git & CI/CD", "Docker","Kubernetes", "Figma","AWS" ],
+    },
+    {
+      category: "AI/ML",
+      items: ["LangChain", "OpenAI API", "RAG", "Pandas", "NumPy", "SciPy", "spaCy", "Matplotlib" ],
+    },
+    {
+      category: "Automation & Testing",
+      items: ["Selenium", "Robot Framework", " Cucumber/Behave", "Postman"],
     },
   ];
 

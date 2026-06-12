@@ -21,7 +21,7 @@ const baseStyles = {
   logo: { fontWeight: 900, letterSpacing: "-1px" },
   navLinks: { display: "flex", gap: "var(--nav-gap, 2rem)", alignItems: "center", flexWrap: "wrap", justifyContent: "center" },
   link: { textDecoration: "none", textTransform: "uppercase", fontSize: "0.85rem", fontWeight: 600, transition: "color 0.2s" },
-  main: { maxWidth: "1200px", margin: "0 auto", padding: "var(--hero-padding, 14rem 2rem 6rem 2rem)", minHeight: "65vh", display: "flex", flexDirection: "column", justifyContent: "center" },
+  main: { maxWidth: "100%", margin: "0 auto", padding: "var(--hero-padding, 14rem 2rem 6rem 2rem)", minHeight: "65vh", display: "flex", flexDirection: "column", justifyContent: "center" },
   badge: { fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", marginBottom: "1rem", display: "block" },
   h1: { fontSize: "clamp(2.5rem, 6vw, 6rem)", fontWeight: 900, textTransform: "uppercase", lineHeight: 0.95, letterSpacing: "-2px", margin: 0 },
   heroDesc: { marginTop: "2rem", fontSize: "1.35rem", maxWidth: "600px", lineHeight: 1.5 },
@@ -29,10 +29,14 @@ const baseStyles = {
   marqueeContent: { display: "flex" },
   marqueeText: { fontSize: "clamp(1.75rem, 4vw, 4rem)", fontWeight: 900, textTransform: "uppercase", paddingRight: "2rem" },
   
+
+  skillssection: { maxWidth: "100%", margin: "0 auto", padding: "var(--section-padding, 8rem 2rem)" },
   section: { maxWidth: "1200px", margin: "0 auto", padding: "var(--section-padding, 8rem 2rem)" },
   sectionHeader: { marginBottom: "4rem", textAlign: "left" },
   h2: { fontSize: "clamp(2rem, 4vw, 4rem)", fontWeight: 900, textTransform: "uppercase", margin: 0, letterSpacing: "-1px" },
   
+
+
   skillsGrid: { display: "grid", gridTemplateColumns: "var(--grid-columns-skills, repeat(auto-fit, minmax(300px, 1fr)))", gap: "2rem" },
   skillsCard: { padding: "2.5rem", borderRadius: "16px", border: "1px solid" },
   skillsGroupTitle: { fontSize: "1.25rem", textTransform: "uppercase", fontWeight: 800, margin: "0 0 1.5rem 0" },

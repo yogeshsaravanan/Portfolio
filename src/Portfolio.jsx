@@ -1,10 +1,167 @@
 // Portfolio.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { motion, useAnimation } from "framer-motion";
 import { styles } from "./PortfolioStyles";
 import ProjectSection from "./ProjectSection";
+import { imageDeck, skillsMatrix, projectsData, lifestyleEcosystem } from "./data";
+import SkillMatrixCards from "./Skillmatrixcards";
+import SkillDeck from "./skilldeck";
 
 export default function Portfolio({ initialTheme = "dark" }) {
+  const canvasRef = useRef(null);
+  const mouseRef = useRef({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const gl = canvas.getContext("webgl");
+    if (!gl) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const handleMouse = (e) => {
+      mouseRef.current = {
+        x: e.clientX / window.innerWidth,
+        y: 1.0 - e.clientY / window.innerHeight,
+      };
+    };
+    window.addEventListener("mousemove", handleMouse);
+
+    const vert = `
+    attribute vec2 a_pos;
+    void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
+  `;
+
+    const frag = `
+    precision highp float;
+    uniform float u_time;
+    uniform vec2 u_res;
+    uniform vec2 u_mouse;
+
+    vec3 palette(float t) {
+      // Your brand: deep black → dark orange glow
+      vec3 a = vec3(0.02, 0.01, 0.01);
+      vec3 b = vec3(0.35, 0.12, 0.02);
+      vec3 c = vec3(1.0, 0.5, 0.1);
+      vec3 d = vec3(0.0, 0.05, 0.08);
+      return a + b * cos(6.28318 * (c * t + d));
+    }
+
+    float noise(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    float smoothNoise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      float a = noise(i);
+      float b = noise(i + vec2(1.0, 0.0));
+      float c = noise(i + vec2(0.0, 1.0));
+      float d = noise(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    }
+
+    float fbm(vec2 p) {
+      float v = 0.0; float amp = 0.5; float freq = 1.0;
+      for (int i = 0; i < 6; i++) {
+        v += amp * smoothNoise(p * freq);
+        amp *= 0.5; freq *= 2.1;
+      }
+      return v;
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / u_res;
+      vec2 aspect = vec2(u_res.x / u_res.y, 1.0);
+      vec2 p = uv * aspect;
+
+      // Mouse influence — fluid warp
+      vec2 m = u_mouse * aspect;
+      float md = length(p - m);
+      float mouseWarp = exp(-md * 3.5) * 0.35;
+
+      float t = u_time * 0.18;
+
+      // Layered fluid domain warping
+      vec2 q = vec2(
+        fbm(p + vec2(0.0, 0.0) + t),
+        fbm(p + vec2(5.2, 1.3) + t)
+      );
+      vec2 r = vec2(
+        fbm(p + 4.0 * q + vec2(1.7, 9.2) + t * 0.7 + mouseWarp),
+        fbm(p + 4.0 * q + vec2(8.3, 2.8) + t * 0.5 + mouseWarp)
+      );
+
+      float f = fbm(p + 4.0 * r + mouseWarp);
+
+      // Color mapping
+      vec3 col = palette(f + 0.3 * t);
+
+      // Darken significantly — you want atmosphere, not screensaver
+      col *= 1.8;
+
+      // Subtle vignette
+      float vig = 1.0 - smoothstep(0.3, 1.2, length((uv - 0.5) * 1.6));
+      col *= vig * 0.85;
+
+      // Bottom fade so text sits on clean dark ground
+      // col *= smoothstep(0.0, 0.35, uv.y);
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+    const compile = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return s;
+    };
+
+    const prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, vert));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, frag));
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+
+    const loc = gl.getAttribLocation(prog, "a_pos");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+    const uTime = gl.getUniformLocation(prog, "u_time");
+    const uRes = gl.getUniformLocation(prog, "u_res");
+    const uMouse = gl.getUniformLocation(prog, "u_mouse");
+
+    let start = performance.now();
+    let raf;
+    const tick = () => {
+      const t = (performance.now() - start) / 1000;
+      gl.uniform1f(uTime, t);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform2f(uMouse, mouseRef.current.x, mouseRef.current.y);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", handleMouse);
+    };
+  }, []);
+
+
   const [theme, setTheme] = useState(initialTheme);
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [activeProject, setActiveProject] = useState(null);
@@ -12,7 +169,6 @@ export default function Portfolio({ initialTheme = "dark" }) {
   const [isMobile, setIsMobile] = useState(false);
   const marqueeControls = useAnimation();
 
-  // 📱 Detect screen dimensions dynamically to safely rescale translation math matrices
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
@@ -36,95 +192,6 @@ export default function Portfolio({ initialTheme = "dark" }) {
   const currentStyles = theme === "dark" ? styles.dark : styles.light;
   const mobileScaler = isMobile ? 0.35 : 1; // Downscales translation offsets on mobile devices smoothly
 
-  // (Keep your data arrays: imageDeck, skillsMatrix, projectsData, lifestyleEcosystem here...)
-
-  const imageDeck = [
-    { title: "On Track", angle: -24, xOffset: -180, yOffset: 60, img: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?q=80&w=400" },
-    { title: "Team Strategy", angle: -12, xOffset: -90, yOffset: 20, img: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=400" },
-    { title: "Main Identity", angle: 0, xOffset: 0, yOffset: 0, img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400" },
-    { title: "Media Day", angle: 12, xOffset: 90, yOffset: 20, img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=400" },
-    { title: "Community Hub", angle: 24, xOffset: 180, yOffset: 60, img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400" },
-  ];
-
-  const skillsMatrix = [
-    {
-      category: "Frontend Architecture",
-      items: ["React / Next.js (90%)", "TypeScript (85%)", "TailwindCSS (95%)", "Redux Toolkit", "HTML5 Canvas", "Framer Motion"],
-    },
-    {
-      category: "Backend & Systems",
-      items: ["Node.js / Express (80%)", "GraphQL / APIs (75%)", "PostgreSQL (70%)", "MongoDB", "Redis Layers"],
-    },
-    {
-      category: "Tools & Deployment",
-      items: ["Git & CI/CD (88%)", "Docker (65%)", "Figma (75%)", "Vercel Optimization", "Webpack"],
-    },
-  ];
-
-  const projectsData = [
-    {
-      id: 1,
-      indexString: "01 // INTERACTIVE ENGINE",
-      title: "Aether Engine",
-      role: "Lead Interactive Engineer",
-      desc: "A node-based generative audio-visual synthesizer playground natively running in the browser with sub-12ms latency scaling loops.",
-      challenges: "Synchronizing Canvas frame updates cleanly with the WebAudio API clock graph without memory bloating thread locks.",
-      outcome: "Achieved seamless 60fps dynamic UI renders with over 400 connected audio oscillator processing nodes running concurrently.",
-      tags: ["React", "Canvas", "TypeScript", "WebAudio"],
-      image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-      live: "#",
-      source: "#"
-    },
-    {
-      id: 2,
-      indexString: "02 // DATA ENGINE",
-      title: "Chronos Dashboard",
-      role: "Full-Stack Developer",
-      desc: "Real-time analytics engine processing millions of active system tracking logs hourly.",
-      challenges: "Optimizing highly nested database pooling queries running across intense aggregate tables.",
-      outcome: "Reduced critical API query metrics latency by roughly 42% overall via Redis layers.",
-      tags: ["Next.js", "PostgreSQL", "Tailwind"],
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=600&q=80",
-      live: "#",
-      source: "#"
-    },
-    {
-      id: 3,
-      indexString: "03 // COGNITIVE WORKSPACE",
-      title: "Lexicon AI",
-      role: "Frontend Engineer",
-      desc: "An interactive workspace playground for fine-tuning text models via visual context structures.",
-      challenges: "Handling messy text-stream buffer edge cases safely inside reactive render cycles.",
-      outcome: "Built an intuitive contextual workspace used internally by 3 separate production product teams.",
-      tags: ["React", "OpenAI", "Framer Motion"],
-      image: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=600&q=80",
-      live: "#",
-      source: "#"
-    },
-    {
-      id: 4,
-      indexString: "04 // DESIGN SYSTEM",
-      title: "Vapor UI",
-      role: "Creative Technologist",
-      desc: "A fully accessible, production hardware-accelerated components kit built around brutalist aesthetics.",
-      challenges: "Ensuring WCAG color accessibility requirements passed without compromising harsh neon brand styling.",
-      outcome: "Open-source toolkit crossing 1,200+ stars on GitHub within 4 months of initial release.",
-      tags: ["CSS", "Design System", "Storybook"],
-      image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=600&q=80",
-      live: "#",
-      source: "#"
-    }
-  ];
-
-  const lifestyleEcosystem = [
-    { area: "Sports & Vitality", desc: "Active cricket competitor and high-intensity physical performance preparation tracker." },
-    { area: "Academics & Systems", desc: "Deep analytical study into algorithmic scaling patterns and modern layout frameworks." },
-    { area: "Cinematics & Audio", desc: "Deconstructing modern cinematography pacing, lighting designs, and complex sci-fi lore structures." },
-    { area: "Travel & Geography", desc: "Documenting routes, exploring multi-terrain regions, and gathering cross-cultural inspirations." },
-    { area: "Books & Literature", desc: "Reviewing tech histories, technical infrastructure manuals, and behavioral optimization books." },
-  ];
-
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={currentStyles.body}>
       <nav style={currentStyles.nav}>
@@ -139,14 +206,33 @@ export default function Portfolio({ initialTheme = "dark" }) {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <main style={currentStyles.main} id="hero">
-        <span style={currentStyles.badge}>PORTFOLIO PROTOCOL // ACTIVE</span>
-        <h1 style={currentStyles.h1}>ENGINEERING THE</h1>
-        <h1 style={{ ...currentStyles.h1, color: "var(--accent)" }}>NEXT GENERATION.</h1>
+      <main style={{ ...currentStyles.main, position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "0 4rem 8rem" }} id="hero">
+
+
+        <canvas ref={canvasRef} style={{
+          position: "absolute", inset: 0,
+          width: "100%", height: "100%",
+          zIndex: 0,
+        }} />
+
+        {/* Text */}
+        <div style={{ position: "relative", zIndex: 2 }}>
+          <motion.span initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }} style={currentStyles.badge}>
+            PORTFOLIO PROTOCOL // ACTIVE
+          </motion.span>
+          <motion.h1 initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }} style={currentStyles.h1}>
+            ENGINEERING THE
+          </motion.h1>
+          <motion.h1 initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            style={{ ...currentStyles.h1, color: "var(--accent)" }}>
+            NEXT GENERATION.
+          </motion.h1>
+        </div>
       </main>
 
-      {/* Ticker Strip */}
       <div style={currentStyles.marqueeWrapper}>
         <motion.div animate={marqueeControls} style={currentStyles.marqueeContent}>
           <span className="stroke-text" style={currentStyles.marqueeText}>CORE TELEMETRY // PRODUCTION READY // </span>
@@ -154,34 +240,16 @@ export default function Portfolio({ initialTheme = "dark" }) {
         </motion.div>
       </div>
 
-      <section id="skills" style={currentStyles.section}>
-        <div style={currentStyles.sectionHeader}>
-          <span style={currentStyles.badge}>Infrastructure Matrix</span>
-          <h2 style={currentStyles.h2}>Technical Capabilities</h2>
-        </div>
-        <div style={currentStyles.skillsGrid}>
-          {skillsMatrix.map((cluster, idx) => (
-            <div key={idx} style={currentStyles.skillsCard}>
-              <h3 style={currentStyles.skillsGroupTitle}>{cluster.category}</h3>
-              <div style={currentStyles.tagWrapper}>
-                {cluster.items.map((skill, sIdx) => (
-                  <span key={sIdx} style={currentStyles.skillTag}>
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
+      {/* <section id="skills" style={currentStyles.skillssection}> */}
+        <SkillMatrixCards skillsMatrix={skillsMatrix} currentStyles={currentStyles} theme={theme} />
+      {/* </section> */}
 
       <section id="experience" style={currentStyles.section}>
         <div style={currentStyles.sectionHeader}>
           <span style={currentStyles.badge}>Track Record</span>
           <h2 style={currentStyles.h2}>Professional Timeline</h2>
         </div>
-        
+
         <div style={currentStyles.timelineContainer}>
           <div style={currentStyles.timelineItem}>
             <div style={currentStyles.timelineMeta}>
@@ -212,12 +280,11 @@ export default function Portfolio({ initialTheme = "dark" }) {
       </section>
 
       {/* Dynamic Render Subsystem Modular Layer */}
-      <ProjectSection 
-        projectsData={projectsData} activeProject={activeProject} 
-        setActiveProject={setActiveProject} currentStyles={currentStyles} theme={theme} 
+      <ProjectSection
+        projectsData={projectsData} activeProject={activeProject}
+        setActiveProject={setActiveProject} currentStyles={currentStyles} theme={theme}
       />
 
-      {/* Fan Viewport Component Perspective Layout */}
       <section id="beyond" style={currentStyles.fanViewport}>
         <div style={currentStyles.arcViewport}>
           {imageDeck.map((card, idx) => {
@@ -291,7 +358,6 @@ export default function Portfolio({ initialTheme = "dark" }) {
         <a href="#" style={currentStyles.bigButton}>Establish LinkedIn Sync Connection</a>
       </footer>
 
-      {/* 📱 Injected Responsive Media Matrix style overrides */}
       <style>{`
         html { scroll-behavior: smooth; }
         .stroke-text { 
