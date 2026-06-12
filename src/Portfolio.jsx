@@ -63,16 +63,18 @@ export default function Portfolio({ initialTheme = "dark" }) {
       <HeroCinematic theme={theme} />
 
 
+      
+
+      {/* <section id="skills" style={currentStyles.skillssection}> */}
+        <SkillMatrixCards skillsMatrix={skillsMatrix} currentStyles={currentStyles} theme={theme} />
+      {/* </section> */}
+
       <div style={currentStyles.marqueeWrapper}>
         <motion.div animate={marqueeControls} style={currentStyles.marqueeContent}>
           <span className="stroke-text" style={currentStyles.marqueeText}>CORE TELEMETRY // PRODUCTION READY // </span>
           <span className="stroke-text" style={currentStyles.marqueeText}>CORE TELEMETRY // PRODUCTION READY // </span>
         </motion.div>
       </div>
-
-      {/* <section id="skills" style={currentStyles.skillssection}> */}
-        <SkillMatrixCards skillsMatrix={skillsMatrix} currentStyles={currentStyles} theme={theme} />
-      {/* </section> */}
 
       <section id="experience" style={currentStyles.section}>
         <div style={currentStyles.sectionHeader}>
