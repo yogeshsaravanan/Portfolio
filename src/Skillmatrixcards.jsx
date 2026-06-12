@@ -84,7 +84,7 @@ export default function SkillMatrixCards({ skillsMatrix, currentStyles, theme })
 
   /* Lusion move: the stage owns a bold brand surface, not the page bg */
   const stageBg = theme === "dark" ? "#0c0608" : "#0055ff";
-  const headlineColor = theme === "dark" ? "rgba(255,255,255,0.95)" : "#ffffff";
+  const headlineColor = theme === "dark" ? "rgba(255,255,255,0.95)" : "#0c0608"
 
   useEffect(() => {
     const N = skillsMatrix.length;
@@ -175,7 +175,7 @@ export default function SkillMatrixCards({ skillsMatrix, currentStyles, theme })
 
         {/* Massive Lusion-scale headline BEHIND the deck */}
         <div ref={headlineRef} style={{ position: "absolute", top: "8vh", width: "100%", textAlign: "center", zIndex: 1, pointerEvents: "none" }}>
-          <span style={{ ...currentStyles.badge, color: theme === "dark" ? "#ff4d00" : "rgba(255,255,255,0.75)" }}>
+          <span style={{ ...currentStyles.badge, color: theme === "dark" ? "#ff4d00" : "#0055ff" }}>
             Infrastructure Matrix
           </span>
           <h2 style={{

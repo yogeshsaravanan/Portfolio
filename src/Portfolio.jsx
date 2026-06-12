@@ -6,7 +6,8 @@ import ProjectSection from "./ProjectSection";
 import { imageDeck, skillsMatrix, projectsData, lifestyleEcosystem } from "./data";
 import SkillMatrixCards from "./Skillmatrixcards";
 import SkillDeck from "./skilldeck";
-import HeroLanding from "./HeroLanding";
+// import HeroLanding from "./HeroLanding";
+import HeroCinematic from "./Herocinematic";
 
 export default function Portfolio({ initialTheme = "dark" }) {
   // const canvasRef = useRef(null);
@@ -59,7 +60,7 @@ export default function Portfolio({ initialTheme = "dark" }) {
         </div>
       </nav>
 
-      <HeroLanding theme={theme} />
+      <HeroCinematic theme={theme} />
 
 
       <div style={currentStyles.marqueeWrapper}>
