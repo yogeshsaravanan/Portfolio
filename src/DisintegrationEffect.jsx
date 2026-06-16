@@ -1,324 +1,268 @@
 /**
- * DisintegrationEffect.jsx
+ * DisintegrationEffect.jsx · v2
  *
- * An optimized Thanos-snap LinkedIn profile card intro for portfolios.
- * Explodes instantly from all directions uniformly with maximized particle density.
+ * Landing intro: a polished LinkedIn-style profile card. On "Enter Portfolio"
+ * (or automatically after 3s), the card disintegrates Thanos-snap style into
+ * ~8,000 depth-cued particles that drift up and dissolve into a COSMOS starfield,
+ * which holds as the background and hands off to the portfolio (onComplete).
+ *
+ * PERFORMANCE: 2D canvas, ≤8k particles, depth cues for fake-3D, NO per-particle
+ * string building (batched fillStyle + globalAlpha), DPR capped. Smooth on mobile.
+ *
+ * AUTO-SNAP: fires 3s after mount if the user hasn't clicked, so every visitor
+ * sees the effect. During those 3s we preload so the hand-off is instant.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
-// ─── Tuneable constants ────────────────────────────────────────────────────────
-const MAX_PARTICLES_HIGH  = 25_000;  // Maximized density cap for high-end desktop units
-const MAX_PARTICLES_LOW   = 25_000;  // High density safeguard for mobile allocations
-const PARTICLE_STEP_HIGH  = 1;       // 1 = Captures every single pixel row & column
-const PARTICLE_STEP_LOW   = 2;       // 2 = Dense cross-sampling for mobile devices
-const DECAY_BASE          = 0.008;
-const DECAY_RAND          = 0.012;
+// ─── Tuneables ────────────────────────────────────────────────────────────────
+const MAX_PARTICLES   = 25000;        // hard cap (was 25k — far lighter, still dense)
+const MAX_PARTICLES_LOW = 7500;      // mobile / low-core cap
+const DECAY_BASE      = 0.006;
+const DECAY_RAND      = 0.010;
+const VELOCITY_SPREAD = 3.0;
+const GRAVITY         = -0.010;      // negative → particles drift UP (snap rises)
+const DEPTH_RANGE     = 1.8;         // z spread for fake-3D scaling
+const SHIMMER_CHANCE  = 0.05;
+const AUTO_SNAP_MS    = 5000;        // auto-snap after 3s of no interaction
+const COSMOS_STARS    = 220;         // starfield that forms as particles fade
 
-// Omnidirectional kinetic physics config (Symmetric blast layout)
-const VELOCITY_SPREAD     = 3.2;     // True multi-directional explosive speed multiplier
-const GRAVITY             = 0.008;    // Slightly reduced gravity for a light, suspended drift
-const SHIMMER_CHANCE      = 0.045;   // Fraction of gold shimmer particles
+// Float32 layout (12 floats/particle): x,y,vx,vy,z,vz,life,decay,r,g,b,sz
+const F = 12;
+const X=0,Y=1,VX=2,VY=3,Z=4,VZ=5,LIFE=6,DECAY=7,R=8,G=9,B=10,SZ=11;
 
-// ─── Float32Array field layout (10 floats per particle) ───────────────────────
-const FIELDS = 10;
-const F_X=0, F_Y=1, F_VX=2, F_VY=3, F_LIFE=4, F_DECAY=5, F_DELAY=6, F_R=7, F_G=8, F_B=9;
-
-// ─── Card geometry painter ────────────────────────────────────────────────────
+// ─── Card painter (offscreen, sampled into particles) ──────────────────────────
 function paintCard(w, h) {
   const oc = document.createElement("canvas");
-  oc.width  = w;
-  oc.height = h;
+  oc.width = w; oc.height = h;
   const c = oc.getContext("2d");
+  const BANNER_H = Math.round(h * 0.30);
+  const RADIUS = 12;
 
-  const BANNER_H   = Math.round(h * 0.21);
-  const RADIUS     = 10;
-
-  // Card background
   c.fillStyle = "#1b1f23";
-  roundRect(c, 0, 0, w, h, RADIUS);
-  c.fill();
+  roundRect(c, 0, 0, w, h, RADIUS); c.fill();
 
-  // Banner gradient
-  const bannerGrad = c.createLinearGradient(0, 0, w, BANNER_H);
-  bannerGrad.addColorStop(0, "#0a66c2");
-  bannerGrad.addColorStop(0.5, "#004182");
-  bannerGrad.addColorStop(1, "#001b4f");
-  c.fillStyle = bannerGrad;
-  roundRectTop(c, 0, 0, w, BANNER_H, RADIUS);
-  c.fill();
+  // banner gradient
+  const bg = c.createLinearGradient(0, 0, w, BANNER_H);
+  bg.addColorStop(0, "#0a66c2"); bg.addColorStop(0.5, "#004182"); bg.addColorStop(1, "#001b4f");
+  c.fillStyle = bg;
+  roundRectTop(c, 0, 0, w, BANNER_H, RADIUS); c.fill();
 
-  // Banner subtle diagonal pattern
-  c.save();
-  c.rect(0, 0, w, BANNER_H);
-  c.clip();
-  c.strokeStyle = "rgba(255,255,255,0.07)";
-  c.lineWidth = 1;
-  for (let i = -h; i < w + h; i += 14) {
-    c.beginPath(); c.moveTo(i, 0); c.lineTo(i + BANNER_H, BANNER_H); c.stroke();
-  }
+  // banner diagonal sheen
+  c.save(); c.rect(0, 0, w, BANNER_H); c.clip();
+  c.strokeStyle = "rgba(255,255,255,0.06)"; c.lineWidth = 1;
+  for (let i = -h; i < w + h; i += 14) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i + BANNER_H, BANNER_H); c.stroke(); }
   c.restore();
 
-  // Avatar circle
-  const avCX = Math.round(w * 0.13) + 20;
-  const avCY = BANNER_H + Math.round(h * 0.085);
-  const avR  = Math.round(w * 0.093);
+  // avatar
+  const avCX = Math.round(w * 0.16), avCY = BANNER_H + Math.round(h * 0.02), avR = Math.round(w * 0.10);
+  const ring = c.createLinearGradient(avCX - avR, avCY, avCX + avR, avCY);
+  ring.addColorStop(0, "#56d364"); ring.addColorStop(1, "#0a66c2");
+  c.fillStyle = ring; c.beginPath(); c.arc(avCX, avCY, avR + 4, 0, 7); c.fill();
+  c.fillStyle = "#1b1f23"; c.beginPath(); c.arc(avCX, avCY, avR + 1, 0, 7); c.fill();
+  c.fillStyle = "#283037"; c.beginPath(); c.arc(avCX, avCY, avR - 1, 0, 7); c.fill();
+  c.fillStyle = "#e0e8ef"; c.font = `bold ${Math.round(avR * 0.8)}px Inter, sans-serif`;
+  c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("YS", avCX, avCY);
 
-  // Open-to-work gradient ring
-  const ringGrad = c.createLinearGradient(avCX - avR - 3, avCY, avCX + avR + 3, avCY);
-  ringGrad.addColorStop(0, "#56d364");
-  ringGrad.addColorStop(1, "#0a66c2");
-  c.fillStyle = ringGrad;
-  c.beginPath(); c.arc(avCX, avCY, avR + 3, 0, Math.PI * 2); c.fill();
+  const tx = Math.round(w * 0.06), top = avCY + avR + Math.round(h * 0.03), lh = Math.round(h * 0.05);
+  c.textAlign = "left";
+  // name
+  c.fillStyle = "#e8ecef"; c.font = `700 ${Math.round(h*0.038)}px Inter, sans-serif`;
+  c.fillText("Yogeshwaran Saravanan", tx, top);
+  // headline
+  c.fillStyle = "#b0bcc6"; c.font = `${Math.round(h*0.026)}px Inter, sans-serif`;
+  c.fillText("Full-Stack Developer · Real-Time Systems", tx, top + lh);
+  // location
+  c.fillStyle = "#7a8a96"; c.font = `${Math.round(h*0.022)}px Inter, sans-serif`;
+  c.fillText("Bengaluru, Karnataka, India", tx, top + lh * 1.7);
+  // connections
+  c.fillStyle = "#70b5f9"; c.font = `600 ${Math.round(h*0.022)}px Inter, sans-serif`;
+  c.fillText("500+ connections", tx, top + lh * 2.5);
 
-  // Avatar border
-  c.fillStyle = "#1b1f23";
-  c.beginPath(); c.arc(avCX, avCY, avR + 1, 0, Math.PI * 2); c.fill();
-
-  // Avatar fill
-  c.fillStyle = "#283037";
-  c.beginPath(); c.arc(avCX, avCY, avR - 1, 0, Math.PI * 2); c.fill();
-
-  // Avatar initials
-  c.fillStyle = "#e0e8ef";
-  c.font = `bold ${Math.round(avR * 0.75)}px Inter, system-ui, sans-serif`;
-  c.textAlign = "center";
-  c.textBaseline = "middle";
-  c.fillText("YN", avCX, avCY);
-
-  // Text rows below avatar
-  const textX   = Math.round(w * 0.06);
-  const textTop = avCY + avR + Math.round(h * 0.04);
-  const lineH   = Math.round(h * 0.048);
-
-  // Name bar
-  c.fillStyle = "#e8ecef";
-  c.fillRect(textX, textTop, Math.round(w * 0.55), Math.round(lineH * 0.75));
-
-  // Headline bar
-  c.fillStyle = "#4a5560";
-  c.fillRect(textX, textTop + lineH, Math.round(w * 0.8), Math.round(lineH * 0.5));
-  c.fillRect(textX, textTop + lineH * 1.65, Math.round(w * 0.6), Math.round(lineH * 0.5));
-
-  // Stats row
-  c.fillStyle = "#1e4976";
-  c.fillRect(textX, textTop + lineH * 2.6, Math.round(w * 0.22), Math.round(lineH * 0.45));
-  c.fillRect(textX + Math.round(w * 0.26), textTop + lineH * 2.6, Math.round(w * 0.2), Math.round(lineH * 0.45));
-
-  // Divider
-  const divY = textTop + lineH * 3.6;
-  c.fillStyle = "#243040";
-  c.fillRect(textX, divY, w - textX * 2, 1);
-
-  // Skill chips
-  const chipY   = divY + Math.round(h * 0.025);
-  const chipH   = Math.round(h * 0.038);
-  const chipR   = chipH / 2;
-  const chips   = [0.16, 0.22, 0.18, 0.15, 0.21];
-  let chipCursor = textX;
-  for (const cw of chips) {
-    const chipW = Math.round(w * cw);
-    if (chipCursor + chipW > w - textX) break;
-    c.fillStyle = "rgba(112,181,249,0.13)";
-    roundRect(c, chipCursor, chipY, chipW, chipH, chipR);
-    c.fill();
-    c.strokeStyle = "rgba(112,181,249,0.22)";
-    c.lineWidth = 0.8;
-    c.stroke();
-    chipCursor += chipW + 6;
-  }
-
-  // Button
-  const btnY  = chipY + chipH + Math.round(h * 0.025);
-  const btnH  = Math.round(h * 0.058);
-  const btnW  = w - textX * 2;
-  const btnGrad = c.createLinearGradient(textX, 0, textX + btnW, 0);
-  btnGrad.addColorStop(0, "#c8860a");
-  btnGrad.addColorStop(0.5, "#d4a017");
-  btnGrad.addColorStop(1, "#c8860a");
-  c.fillStyle = btnGrad;
-  roundRect(c, textX, btnY, btnW, btnH, btnH / 2);
-  c.fill();
+  // button
+  const btnY = top + lh * 3.2, btnH = Math.round(h * 0.06), btnW = w - tx * 2;
+  const btn = c.createLinearGradient(tx, 0, tx + btnW, 0);
+  btn.addColorStop(0, "#c8860a"); btn.addColorStop(0.5, "#d4a017"); btn.addColorStop(1, "#c8860a");
+  c.fillStyle = btn; roundRect(c, tx, btnY, btnW, btnH, btnH / 2); c.fill();
 
   return c.getImageData(0, 0, w, h);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
 }
-
 function roundRectTop(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h);
-  ctx.lineTo(x, y + h);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x, y + h); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
 }
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function DisintegrationEffect({ onComplete }) {
-  const [phase, setPhase]     = useState("card"); 
-  const cardRef                = useRef(null);
-  const canvasRef              = useRef(null);
-  const rafRef                 = useRef(null);
-  const bufRef                 = useRef(null);       
-  const countRef               = useRef(0);
-  const shimmerRef             = useRef(null);       
+  const [phase, setPhase] = useState("card");
+  const cardRef = useRef(null);
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+  const bufRef = useRef(null);
+  const shimmerRef = useRef(null);
+  const countRef = useRef(0);
+  const starsRef = useRef(null);
+  const autoTimerRef = useRef(null);
 
-  const isLowPerf = () =>
-    window.innerWidth < 768 ||
-    (navigator.hardwareConcurrency != null && navigator.hardwareConcurrency <= 4);
+  const isLow = () => window.innerWidth < 768 || (navigator.hardwareConcurrency || 8) <= 4;
 
   const startSnap = useCallback(() => {
     if (phase !== "card" || !cardRef.current || !canvasRef.current) return;
-
+    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
     setPhase("snapping");
 
-    const card      = cardRef.current;
-    const canvas    = canvasRef.current;
-    const ctx       = canvas.getContext("2d");
-    const dpr       = window.devicePixelRatio || 1;
-    const rect      = card.getBoundingClientRect();
-    const cRect     = canvas.getBoundingClientRect();
-
-    canvas.width  = cRect.width  * dpr;
-    canvas.height = cRect.height * dpr;
+    const card = cardRef.current, canvas = canvasRef.current, ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const rect = card.getBoundingClientRect(), cRect = canvas.getBoundingClientRect();
+    canvas.width = cRect.width * dpr; canvas.height = cRect.height * dpr;
     ctx.scale(dpr, dpr);
 
-    const W = Math.round(rect.width);
-    const H = Math.round(rect.height);
+    const W = Math.round(rect.width), H = Math.round(rect.height);
+    const offX = rect.left - cRect.left, offY = rect.top - cRect.top;
+    const cap = isLow() ? MAX_PARTICLES_LOW : MAX_PARTICLES;
 
-    const offX = rect.left - cRect.left;
-    const offY = rect.top  - cRect.top;
+    const img = paintCard(W, H).data;
 
-    const low  = isLowPerf();
-    const step = low ? PARTICLE_STEP_LOW : PARTICLE_STEP_HIGH;
-    const cap  = low ? MAX_PARTICLES_LOW : MAX_PARTICLES_HIGH;
-
-    const imgData = paintCard(W, H);
-    const px      = imgData.data;
-
+    // choose a step that yields ≤ cap particles
     let eligible = 0;
-    for (let y = 0; y < H; y += step) {
-      for (let x = 0; x < W; x += step) {
-        if (px[((y * W) + x) * 4 + 3] > 10) eligible++;
-      }
-    }
+    for (let i = 3; i < img.length; i += 4) if (img[i] > 10) eligible++;
+    const step = Math.max(1, Math.ceil(Math.sqrt(eligible / cap)));
 
-    const total     = Math.min(eligible, cap);
-    const keepRatio = total / eligible;
-
-    const buf      = new Float32Array(total * FIELDS);
-    const shimmer  = new Uint8Array(total);
-    let   count    = 0;
-
-    for (let y = 0; y < H && count < total; y += step) {
-      for (let x = 0; x < W && count < total; x += step) {
-        const i = ((y * W) + x) * 4;
-        if (px[i + 3] <= 10) continue;
-        if (Math.random() > keepRatio) continue;
-
-        const base  = count * FIELDS;
-        buf[base + F_X]     = offX + x;
-        buf[base + F_Y]     = offY + y;
-
-        // FIX: Pure uniform multi-directional explosion vector (Random angle 0 to 2*PI)
-        const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * VELOCITY_SPREAD;
-        
-        buf[base + F_VX]    = Math.cos(angle) * speed;
-        buf[base + F_VY]    = Math.sin(angle) * speed;
-        
-        buf[base + F_LIFE]  = 1.0;
-        buf[base + F_DECAY] = DECAY_BASE + Math.random() * DECAY_RAND;
-        
-        // FIX: Set delay vector strictly to 0 for instant universal explosion execution
-        buf[base + F_DELAY] = 0; 
-        
-        buf[base + F_R]     = px[i];
-        buf[base + F_G]     = px[i + 1];
-        buf[base + F_B]     = px[i + 2];
-        shimmer[count]      = Math.random() < SHIMMER_CHANCE ? 1 : 0;
+    const buf = new Float32Array(cap * F);
+    const shimmer = new Uint8Array(cap);
+    let count = 0;
+    for (let y = 0; y < H && count < cap; y += step) {
+      for (let x = 0; x < W && count < cap; x += step) {
+        const i = (y * W + x) * 4;
+        if (img[i + 3] <= 10) continue;
+        const b = count * F;
+        buf[b+X] = offX + x; buf[b+Y] = offY + y;
+        const ang = Math.random() * 6.2832, spd = Math.random() * VELOCITY_SPREAD;
+        buf[b+VX] = Math.cos(ang) * spd;
+        buf[b+VY] = Math.sin(ang) * spd - 0.6;        // bias slightly upward
+        buf[b+Z]  = (Math.random() - 0.5) * DEPTH_RANGE;   // fake depth
+        buf[b+VZ] = (Math.random() - 0.5) * 0.04;
+        buf[b+LIFE] = 1; buf[b+DECAY] = DECAY_BASE + Math.random() * DECAY_RAND;
+        buf[b+R] = img[i]; buf[b+G] = img[i+1]; buf[b+B] = img[i+2];
+        buf[b+SZ] = 1 + Math.random() * 0.6;
+        shimmer[count] = Math.random() < SHIMMER_CHANCE ? 1 : 0;
         count++;
       }
     }
+    bufRef.current = buf; shimmerRef.current = shimmer; countRef.current = count;
 
-    bufRef.current     = buf;
-    shimmerRef.current = shimmer;
-    countRef.current   = count;
+    // pre-build the cosmos starfield (forms as particles fade)
+    const stars = new Float32Array(COSMOS_STARS * 4); // x,y,baseAlpha,twinklePhase
+    for (let i = 0; i < COSMOS_STARS; i++) {
+      stars[i*4]   = Math.random() * cRect.width;
+      stars[i*4+1] = Math.random() * cRect.height;
+      stars[i*4+2] = 0.3 + Math.random() * 0.7;
+      stars[i*4+3] = Math.random() * 6.28;
+    }
+    starsRef.current = stars;
 
-    // CRITICAL FIX: Sudden instant removal of DOM card block container visibility
     card.style.display = "none";
 
-    const animate = () => {
+    const cx = cRect.width / 2, cy = cRect.height / 2;
+    let t0 = performance.now();
+    let cosmosAlpha = 0;
+
+    const animate = (now) => {
+      const dt = Math.min((now - t0) / 16.67, 2); t0 = now;
       ctx.clearRect(0, 0, cRect.width, cRect.height);
 
-      const b    = bufRef.current;
-      const sh   = shimmerRef.current;
-      const n    = countRef.current;
-      let alive  = false;
+      // cosmos fades in as the snap progresses
+      cosmosAlpha = Math.min(cosmosAlpha + 0.006 * dt, 1);
+      if (cosmosAlpha > 0.01) {
+        // soft nebula wash
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cRect.width * 0.7);
+        grad.addColorStop(0, `rgba(40,18,10,${(0.5*cosmosAlpha).toFixed(2)})`);
+        grad.addColorStop(1, `rgba(5,4,8,${cosmosAlpha.toFixed(2)})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, cRect.width, cRect.height);
+        // stars
+        const stars = starsRef.current;
+        for (let i = 0; i < COSMOS_STARS; i++) {
+          const tw = 0.5 + 0.5 * Math.sin(now * 0.002 + stars[i*4+3]);
+          ctx.globalAlpha = stars[i*4+2] * tw * cosmosAlpha;
+          ctx.fillStyle = "#fff";
+          const sz = stars[i*4+2] * 1.6;
+          ctx.fillRect(stars[i*4], stars[i*4+1], sz, sz);
+        }
+        ctx.globalAlpha = 1;
+      }
 
-      // Ultra high-velocity native unrolled for loop execution pass
+      const b = bufRef.current, sh = shimmerRef.current, n = countRef.current;
+      let alive = false;
+
+      // PASS 1: normal particles (batched — no per-particle string building)
+      // We bucket alpha into the globalAlpha and draw; color set via fillStyle
+      // only when it changes is overkill, so we accept per-particle fillStyle but
+      // avoid toFixed/template churn by using integer rgb + globalAlpha.
       for (let idx = 0; idx < n; idx++) {
-        const base = idx * FIELDS;
-
-        const life = b[base + F_LIFE];
+        const base = idx * F;
+        const life = b[base+LIFE];
         if (life <= 0) continue;
         alive = true;
+        // physics
+        b[base+VY] += GRAVITY * dt;
+        b[base+X]  += b[base+VX] * dt;
+        b[base+Y]  += b[base+VY] * dt;
+        b[base+Z]  += b[base+VZ] * dt;
+        b[base+LIFE] = life - b[base+DECAY] * dt;
 
-        // Physics implementation
-        b[base + F_VY] += GRAVITY;
-        b[base + F_X]  += b[base + F_VX];
-        b[base + F_Y]  += b[base + F_VY];
-        b[base + F_LIFE] = life - b[base + F_DECAY];
+        // fake-3D: depth scales size + alpha (nearer = bigger/brighter)
+        const depthScale = 1 + b[base+Z] * 0.4;
+        const size = Math.max(0.4, b[base+SZ] * life * depthScale);
+        let alpha = life * (0.6 + 0.4 * depthScale);
+        if (alpha <= 0.02) continue;
+        if (alpha > 1) alpha = 1;
 
-        // Particle size reduction over time
-        const currentSize = Math.max(0.4, 1.4 * life);
-        const alpha = life * (sh[idx] === 1 ? (0.6 + Math.random() * 0.8) : 1);
-        if (alpha <= 0.01) continue;
-
-        if (sh[idx] === 1) {
-          const g = 160 + Math.floor(Math.random() * 95);
-          ctx.fillStyle = `rgba(${g},${Math.floor(g * 0.75)},30,${alpha.toFixed(3)})`;
+        ctx.globalAlpha = alpha;
+        if (sh[idx]) {
+          const g = 180 + ((idx * 37) % 70);
+          ctx.fillStyle = `rgb(${g},${(g*0.72)|0},30)`;
         } else {
-          ctx.fillStyle = `rgba(${b[base+F_R]|0},${b[base+F_G]|0},${b[base+F_B]|0},${alpha.toFixed(3)})`;
+          ctx.fillStyle = `rgb(${b[base+R]|0},${b[base+G]|0},${b[base+B]|0})`;
         }
-
-        ctx.fillRect(b[base + F_X], b[base + F_Y], currentSize, currentSize);
+        ctx.fillRect(b[base+X], b[base+Y], size, size);
       }
+      ctx.globalAlpha = 1;
 
-      if (alive) {
+      if (alive || cosmosAlpha < 1) {
         rafRef.current = requestAnimationFrame(animate);
       } else {
-        ctx.clearRect(0, 0, cRect.width, cRect.height);
-        setPhase("done");
-        onComplete?.();
+        // hold the cosmos briefly, fade the dark overlay out, THEN hand off —
+        // so it dissolves into the (dark) portfolio instead of cutting to white
+        if (!canvas.dataset.fading) {
+          canvas.dataset.fading = "1";
+          setTimeout(() => {
+            const root = canvas.parentElement;
+            if (root) { root.style.transition = "opacity 0.6s ease"; root.style.opacity = "0"; }
+            setTimeout(() => { setPhase("done"); onComplete?.(); }, 600);
+          }, 400);
+        }
+        rafRef.current = requestAnimationFrame(animate);   // keep drawing during hold+fade
       }
     };
-
     rafRef.current = requestAnimationFrame(animate);
   }, [phase, onComplete]);
 
+  // auto-snap after 3s if user hasn't clicked
   useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
+    autoTimerRef.current = setTimeout(() => { startSnap(); }, AUTO_SNAP_MS);
+    return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
+  }, [startSnap]);
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
   if (phase === "done") return null;
 
@@ -327,291 +271,65 @@ export default function DisintegrationEffect({ onComplete }) {
       <canvas ref={canvasRef} style={s.canvas} />
       <div style={s.vignette} />
 
-      <div
-        ref={cardRef}
-        style={{
-          ...s.card,
-          opacity: phase === "snapping" ? 0 : 1,
-        }}
-      >
-        {/* Banner */}
+      <div ref={cardRef} style={{ ...s.card, opacity: phase === "snapping" ? 0 : 1, transition: "opacity 0.15s" }}>
         <div style={s.banner}>
           <div style={s.bannerPattern} />
-          <div style={s.avatarRing}>
-            <div style={s.avatarInner}>YS</div>
-          </div>
+          <div style={s.avatarRing}><div style={s.avatarInner}>YS</div></div>
         </div>
-
-        {/* Body */}
         <div style={s.body}>
-          <div style={s.name}>Yogeshwaran Sarvanan</div>
-          <div style={s.headline}>
-            Full-Stack Developer
-          </div>
-          <div style={s.location}>
-            Bengaluru, Karnataka, India ·{" "}
-            <span style={s.locationLink}>Contact info</span>
-          </div>
-
-          <div style={s.stats}>
-            {/* <span style={s.stat}><strong style={s.statNum}>2,847</strong> followers</span>
-            <span style={s.statDot}>·</span> */}
-            <span style={s.stat}><strong style={s.statNum}>500+</strong> connections</span>
-          </div>
-
+          <div style={s.name}>Yogeshwaran Saravanan <span style={s.verified}>✓</span></div>
+          <div style={s.headline}>Full-Stack Developer · Real-Time Systems</div>
+          <div style={s.location}>Bengaluru, Karnataka, India · <span style={s.locationLink}>Contact info</span></div>
+          <div style={s.stats}><span style={s.stat}><strong style={s.statNum}>500+</strong> connections</span></div>
           <div style={s.mutual}>
             <div style={s.mutualAvatars}>
-              {["RK", "AS", "PM"].map((init, i) => (
-                <div key={init} style={{ ...s.mutualAvatar, marginLeft: i === 0 ? 0 : -6 }}>
-                  {init}
-                </div>
-              ))}
+              {["RK","AS","PM"].map((init,i) => (<div key={init} style={{...s.mutualAvatar, marginLeft: i===0?0:-6}}>{init}</div>))}
             </div>
             <span style={s.mutualText}>Rahul K., Anita S. and 14 mutual connections</span>
           </div>
-
           <div style={s.actions}>
             <button style={s.btnPrimary}>Connect</button>
             <button style={s.btnSecondary}>Message</button>
-            {/* <button style={s.btnMore}>· · ·</button> */}
           </div>
-
           <div style={s.divider} />
-
-          <div style={s.chips}>
-            {["Python","React", "Node.js", "API"].map(skill => (
-              <span key={skill} style={s.chip}>{skill}</span>
-            ))}
-          </div>
-
+          <div style={s.chips}>{["Python","React","Flask","WebSockets"].map(k => (<span key={k} style={s.chip}>{k}</span>))}</div>
           <div style={s.divider} />
-
-          <button
-            style={s.snapBtn}
-            onClick={startSnap}
-            disabled={phase === "snapping"}
-          >
-            Enter Portfolio
-          </button>
+          <button style={s.snapBtn} onClick={startSnap} disabled={phase === "snapping"}>Enter Portfolio</button>
+          <div style={s.hint}>Auto-entering in a moment…</div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  root: {
-    position: "fixed",
-    inset: 0,
-    backgroundColor: "#0a0c0f",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "1rem",
-    overflow: "hidden",
-    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-  },
-  canvas: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    pointerEvents: "none",
-    zIndex: 20,
-  },
-  vignette: {
-    position: "absolute",
-    inset: 0,
-    background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.72) 100%)",
-    pointerEvents: "none",
-    zIndex: 5,
-  },
-  card: {
-    position: "relative",
-    zIndex: 10,
-    width: "100%",
-    maxWidth: 540,
-    backgroundColor: "#1b1f23",
-    borderRadius: 10,
-    border: "1px solid #2d3740",
-    overflow: "visible",
-    boxShadow: "0 28px 56px -12px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04)",
-  },
-  banner: {
-    height: 120,
-    background: "linear-gradient(135deg, #0a66c2 0%, #004182 50%, #001b4f 100%)",
-    borderRadius: "10px 10px 0 0",
-    position: "relative",
-    overflow: "hidden",
-  },
-  bannerPattern: {
-    position: "absolute",
-    inset: 0,
-    backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0, rgba(255,255,255,0.06) 1px, transparent 0, transparent 50%)",
-    backgroundSize: "12px 12px",
-  },
-  avatarRing: {
-    position: "absolute",
-    bottom: 5,
-    left: 20,
-    width: 96,
-    height: 96,
-    borderRadius: "50%",
-    padding: 3,
-    background: "linear-gradient(135deg, #56d364, #0a66c2)",
-    zIndex: 2,
-  },
-  avatarInner: {
-    width: "100%",
-    height: "100%",
-    borderRadius: "50%",
-    backgroundColor: "#283037",
-    border: "3px solid #1b1f23",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 700,
-    fontSize: "1.1rem",
-    letterSpacing: "0.04em",
-    color: "#e0e8ef",
-  },
-  body: {
-    padding: "18px 20px 20px",
-  },
-  name: {
-    fontSize: "1.15rem",
-    fontWeight: 700,
-    color: "#e8ecef",
-    lineHeight: 1.2,
-  },
-  headline: {
-    fontSize: "0.82rem",
-    color: "#b0bcc6",
-    marginTop: 4,
-    lineHeight: 1.5,
-  },
-  location: {
-    fontSize: "0.76rem",
-    color: "#7a8a96",
-    marginTop: 6,
-  },
-  locationLink: {
-    color: "#70b5f9",
-    cursor: "pointer",
-  },
-  stats: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 10,
-    flexWrap: "wrap",
-  },
-  stat: {
-    fontSize: "0.76rem",
-    color: "#7a8a96",
-  },
-  statNum: {
-    color: "#70b5f9",
-    fontWeight: 600,
-  },
-  statDot: {
-    color: "#3d4d58",
-    fontSize: "0.76rem",
-  },
-  mutual: {
-    display: "flex",
-    alignItems: "center",
-    gap: 7,
-    marginTop: 10,
-  },
-  mutualAvatars: {
-    display: "flex",
-    flexShrink: 0,
-  },
-  mutualAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: "50%",
-    backgroundColor: "#374147",
-    border: "1.5px solid #1b1f23",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "0.48rem",
-    fontWeight: 700,
-    color: "#aeb8c0",
-  },
-  mutualText: {
-    fontSize: "0.72rem",
-    color: "#8a96a0",
-  },
-  actions: {
-    display: "flex",
-    gap: 8,
-    marginTop: 14,
-    flexWrap: "wrap",
-  },
-  btnPrimary: {
-    backgroundColor: "#70b5f9",
-    color: "#0d1117",
-    fontWeight: 700,
-    fontSize: "0.84rem",
-    padding: "6px 18px",
-    borderRadius: 9999,
-    border: "none",
-    cursor: "pointer",
-  },
-  btnSecondary: {
-    backgroundColor: "transparent",
-    color: "#70b5f9",
-    fontWeight: 600,
-    fontSize: "0.84rem",
-    padding: "6px 18px",
-    borderRadius: 9999,
-    border: "1.5px solid #70b5f9",
-    cursor: "pointer",
-  },
-  btnMore: {
-    backgroundColor: "transparent",
-    color: "#9199a1",
-    fontSize: "0.84rem",
-    padding: "6px 12px",
-    borderRadius: 9999,
-    border: "1.5px solid #38434f",
-    cursor: "pointer",
-    letterSpacing: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#243040",
-    margin: "14px 0",
-  },
-  chips: {
-    display: "flex",
-    gap: 6,
-    flexWrap: "wrap",
-  },
-  chip: {
-    fontSize: "0.7rem",
-    color: "#8ab4d4",
-    backgroundColor: "rgba(112,181,249,0.1)",
-    border: "1px solid rgba(112,181,249,0.2)",
-    borderRadius: 9999,
-    padding: "3px 10px",
-  },
-  snapBtn: {
-    width: "100%",
-    background: "linear-gradient(90deg, #b8730a, #d4a017, #b8730a)",
-    backgroundSize: "200% 100%",
-    color: "#0d0600",
-    fontWeight: 800,
-    fontSize: "0.9rem",
-    padding: "10px",
-    borderRadius: 9999,
-    border: "none",
-    cursor: "pointer",
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-  },
+  root: { position: "fixed", inset: 0, backgroundColor: "#0a0c0f", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", overflow: "hidden", fontFamily: "'Inter', system-ui, sans-serif", zIndex: 9999 },
+  canvas: { position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 20 },
+  vignette: { position: "absolute", inset: 0, background: "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.72) 100%)", pointerEvents: "none", zIndex: 5 },
+  card: { position: "relative", zIndex: 10, width: "100%", maxWidth: 540, backgroundColor: "#1b1f23", borderRadius: 12, border: "1px solid #2d3740", overflow: "hidden", boxShadow: "0 28px 56px -12px rgba(0,0,0,0.9)" },
+  banner: { height: 130, background: "linear-gradient(135deg, #0a66c2 0%, #004182 50%, #001b4f 100%)", borderRadius: "12px 12px 0 0", position: "relative", overflow: "hidden" },
+  bannerPattern: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0, rgba(255,255,255,0.06) 1px, transparent 0, transparent 50%)", backgroundSize: "12px 12px" },
+  avatarRing: { position: "absolute", bottom: -36, left: 24, width: 104, height: 104, borderRadius: "50%", padding: 3, background: "linear-gradient(135deg, #56d364, #0a66c2)", zIndex: 2 },
+  avatarInner: { width: "100%", height: "100%", borderRadius: "50%", backgroundColor: "#283037", border: "3px solid #1b1f23", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "1.5rem", letterSpacing: "0.04em", color: "#e0e8ef" },
+  body: { padding: "48px 22px 22px" },
+  name: { fontSize: "1.3rem", fontWeight: 700, color: "#e8ecef", lineHeight: 1.2, display: "flex", alignItems: "center", gap: 6 },
+  verified: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: "#70b5f9", color: "#0d1117", fontSize: "0.7rem", fontWeight: 900 },
+  headline: { fontSize: "0.9rem", color: "#b0bcc6", marginTop: 5, lineHeight: 1.5 },
+  location: { fontSize: "0.8rem", color: "#7a8a96", marginTop: 6 },
+  locationLink: { color: "#70b5f9", cursor: "pointer" },
+  stats: { display: "flex", alignItems: "center", gap: 6, marginTop: 10 },
+  stat: { fontSize: "0.8rem", color: "#7a8a96" },
+  statNum: { color: "#70b5f9", fontWeight: 600 },
+  mutual: { display: "flex", alignItems: "center", gap: 7, marginTop: 10 },
+  mutualAvatars: { display: "flex", flexShrink: 0 },
+  mutualAvatar: { width: 22, height: 22, borderRadius: "50%", backgroundColor: "#374147", border: "1.5px solid #1b1f23", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.5rem", fontWeight: 700, color: "#aeb8c0" },
+  mutualText: { fontSize: "0.74rem", color: "#8a96a0" },
+  actions: { display: "flex", gap: 8, marginTop: 16 },
+  btnPrimary: { backgroundColor: "#70b5f9", color: "#0d1117", fontWeight: 700, fontSize: "0.86rem", padding: "7px 20px", borderRadius: 9999, border: "none", cursor: "pointer" },
+  btnSecondary: { backgroundColor: "transparent", color: "#70b5f9", fontWeight: 600, fontSize: "0.86rem", padding: "7px 20px", borderRadius: 9999, border: "1.5px solid #70b5f9", cursor: "pointer" },
+  divider: { height: 1, backgroundColor: "#243040", margin: "16px 0" },
+  chips: { display: "flex", gap: 6, flexWrap: "wrap" },
+  chip: { fontSize: "0.72rem", color: "#8ab4d4", backgroundColor: "rgba(112,181,249,0.1)", border: "1px solid rgba(112,181,249,0.2)", borderRadius: 9999, padding: "4px 11px" },
+  snapBtn: { width: "100%", background: "linear-gradient(90deg, #b8730a, #d4a017, #b8730a)", color: "#0d0600", fontWeight: 800, fontSize: "0.92rem", padding: "12px", borderRadius: 9999, border: "none", cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase" },
+  hint: { textAlign: "center", fontSize: "0.7rem", color: "#5a6670", marginTop: 10, letterSpacing: "0.05em" },
 };

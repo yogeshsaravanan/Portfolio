@@ -8,6 +8,10 @@ import SkillMatrixCards from "./Skillmatrixcards";
 import SkillDeck from "./skilldeck";
 // import HeroLanding from "./HeroLanding";
 import HeroCinematic from "./Herocinematic";
+import MechReveal from "./Mechreveel";
+import MountainReveal from "./Mountainreveal";
+import K2Reveal from "./K2Reveal";
+import ScrollMorphRail from "./Scrollmorphrail";
 
 export default function Portfolio({ initialTheme = "dark" }) {
   // const canvasRef = useRef(null);
@@ -48,14 +52,15 @@ export default function Portfolio({ initialTheme = "dark" }) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={currentStyles.body}>
+      {/* <ScrollMorphRail theme={theme} /> */}
       <nav style={currentStyles.nav}>
-        <div id="navLogo" style={currentStyles.logo}>YOGESHWARAN <br />SARAVANAN</div>
+        <div id="navLogo" style={currentStyles.logo}>YOGESHWARAN <br style={{ justifyContent: "center" }} />SARAVANAN</div>
         <div style={currentStyles.navLinks}>
           <a href="#skills" style={currentStyles.link}>Capabilities</a>
           <a href="#projects" style={currentStyles.link}>Production</a>
           <a href="#contact" style={currentStyles.link}>Transmission</a>
           <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={currentStyles.toggleButton}>
-            Matrix: {theme === "dark" ? "🔴 Red" : "🔵 Blue"}
+            {theme === "dark" ? "🔴 Red" : "🔵 Blue"}
           </button>
         </div>
       </nav>
@@ -63,16 +68,23 @@ export default function Portfolio({ initialTheme = "dark" }) {
       <HeroCinematic theme={theme} />
 
 
-      
 
-      {/* <section id="skills" style={currentStyles.skillssection}> */}
+
+      <section id="skills">
         <SkillMatrixCards skillsMatrix={skillsMatrix} currentStyles={currentStyles} theme={theme} />
-      {/* </section> */}
+      </section>
 
-      <div style={currentStyles.marqueeWrapper}>
+      {/* <div style={currentStyles.marqueeWrapper}>
         <motion.div animate={marqueeControls} style={currentStyles.marqueeContent}>
           <span className="stroke-text" style={currentStyles.marqueeText}>CORE TELEMETRY // PRODUCTION READY // </span>
           <span className="stroke-text" style={currentStyles.marqueeText}>CORE TELEMETRY // PRODUCTION READY // </span>
+        </motion.div>
+      </div> */}
+
+      <div style={currentStyles.marqueeWrapper}>
+        <motion.div animate={marqueeControls} style={currentStyles.marqueeContent}>
+          <span className="stroke-text" style={currentStyles.marqueeText}>PYTHON // REACT // FLASK // WEBSOCKETS // PRODUCTION READY //  </span>
+          <span className="stroke-text" style={currentStyles.marqueeText}>PYTHON // REACT // FLASK // WEBSOCKETS // PRODUCTION READY // </span>
         </motion.div>
       </div>
 
@@ -86,25 +98,25 @@ export default function Portfolio({ initialTheme = "dark" }) {
           <div style={currentStyles.timelineItem}>
             <div style={currentStyles.timelineMeta}>
               <span style={currentStyles.timelineDate}>2024 — PRESENT</span>
-              <span style={currentStyles.timelineCompany}>Tech Core Systems</span>
+              <span style={currentStyles.timelineCompany}>Boeing India</span>
             </div>
             <div style={currentStyles.timelineContent}>
-              <h3 style={currentStyles.timelineRole}>Senior Software Engineer</h3>
+              <h3 style={currentStyles.timelineRole}>Full Stack Developer</h3>
               <p style={currentStyles.timelineBody}>
-                Optimized frontend application load times by 42% utilizing strategic component decoupling and caching engines. Led a team of 4 engineers delivering enterprise pipeline control interfaces.
+                Building enterprise apps for real-time data acquisition and visualization with Flask and React. Engineered WebSocket-based live data streaming and integrated Neo4j and InfluxDB for high-throughput data management — shipping in Agile, CI/CD-driven teams.
               </p>
             </div>
           </div>
 
           <div style={currentStyles.timelineItem}>
             <div style={currentStyles.timelineMeta}>
-              <span style={currentStyles.timelineDate}>2022 — 2024</span>
-              <span style={currentStyles.timelineCompany}>Nexus Digital Lab</span>
+              <span style={currentStyles.timelineDate}>2021 — 2024</span>
+              <span style={currentStyles.timelineCompany}>TCS</span>
             </div>
             <div style={currentStyles.timelineContent}>
               <h3 style={currentStyles.timelineRole}>Full-Stack Developer</h3>
               <p style={currentStyles.timelineBody}>
-                Architected microservice integrations handling millions of concurrent requests. Built layout asset engines using reactive frameworks to streamline multi-platform deployments.
+                Developed and maintained web applications using Python, Django, and REST APIs. Built automation frameworks with Behave/Cucumber, CI/CD pipelines on Jenkins and CloudBees, and reporting dashboards — owning API and database testing across Agile delivery.
               </p>
             </div>
           </div>
@@ -212,7 +224,20 @@ export default function Portfolio({ initialTheme = "dark" }) {
             --btn-font: 0.85rem;
           }
         }
+        nav a { position: relative; }
+        nav a::after {
+          content: "";
+          position: absolute; left: 0; bottom: -2px;
+          width: 0; height: 2px;
+          background: ${theme === "dark" ? "#ff4d00" : "#0055ff"};
+          transition: width 0.3s ease;
+        }
+        nav a:hover::after { width: 100%; }
+        nav a:hover { color: ${theme === "dark" ? "#fff" : "#111"}; }
       `}</style>
+      {/* <MechReveal theme={theme} />
+      <MountainReveal theme={theme} /> */}
+      {/* <K2Reveal theme={theme}/> */}
     </motion.div>
   );
 }

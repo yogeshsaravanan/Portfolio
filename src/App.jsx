@@ -12,7 +12,7 @@ export default function App() {
   };
 
   return (
-    <>
+    <div style={{ minHeight: "100vh", backgroundColor: "#080808" }}>
       {step === 1 && (
         <DisintegrationEffect onComplete={() => setStep(3)} />
       )}
@@ -41,7 +41,14 @@ export default function App() {
       )}
 
       {step === 3 && <Portfolio initialTheme={theme} />}
-    </>
+    </div>
+
+  // <div style={{ minHeight: "100vh", backgroundColor: "#080808" }}>
+  //   {step === 1 && (
+  //     <DisintegrationEffect onComplete={() => setStep(3)} />
+  //   )}
+  //   {step === 3 && <Portfolio initialTheme={theme} />}
+  // </div>
   );
 }
 

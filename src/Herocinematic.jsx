@@ -21,6 +21,7 @@ import React, { useRef, useEffect } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
+import K2Reveal from "./K2Reveal";
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -30,8 +31,8 @@ gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 const isMobile = () => typeof window !== "undefined" && window.innerWidth < 768;
 
 const CONFIG = {
-  pinLength: "+=1500%",
-  scrub: 1.2,
+  pinLength: "+=1800%",
+  scrub: 1,
 
   // resolution scale: 1 = native. We cap DPR and downscale on mobile.
   maxDPR: 1.6,                 // never render above 1.6× even on 3× phones
@@ -41,7 +42,7 @@ const CONFIG = {
 
   win: {
     flightIn: 0.08, flightOut: 0.22, navTakeover: 0.23,
-    beatA: [0.26, 0.44], beatB: [0.46, 0.62], beatC: [0.64, 0.75],
+    beatA: [0.26, 0.44], beatB: [0.46, 0.62], beatC: [0.64, 0.80],
     travel: 0.035, formStart: 0.50, formEnd: 0.72, suckStart: 0.72,
   },
 
@@ -57,7 +58,7 @@ const CONFIG = {
 };
 
 const THEME = {
-  dark:  { accent: "#ff4d00", glAccent: 0.0 },
+  dark: { accent: "#ff4d00", glAccent: 0.0 },
   light: { accent: "#0055ff", glAccent: 1.0 },
 };
 
@@ -155,7 +156,17 @@ void main(){
     bg = mix(bg, tube, smoothstep(0.05,0.55,dive));
   }
 
-  bg *= (1.0 - smoothstep(0.30,1.20,length(uv-0.5)*1.6)*0.18)*0.85;
+  // bg *= (1.0 - smoothstep(0.30,1.20,length(uv-0.5)*1.6)*0.18)*0.85;
+  float bloom = smoothstep(0.82, 0.95, dive);            // 0→1 the burst
+  float settle = smoothstep(0.95, 1.0, dive);            // 0→1 fade to section
+  // expanding light from the vanishing point
+  float fromCenter = 1.0 - smoothstep(0.0, mix(0.15, 1.4, bloom), length(uv-0.5)*1.6);
+  vec3 flashCol = mix(vec3(1.0,0.95,0.88), vec3(1.0), u_accent);   // warm(dark) / pure(light)
+  bg = mix(bg, flashCol, bloom * fromCenter);
+  bg = mix(bg, flashCol, bloom * 0.6);                   // overall wash so edges bloom too
+  // settle to the exact Capabilities section colour
+  vec3 sectionCol = mix(vec3(0.047,0.024,0.031), vec3(0.0,0.333,1.0), u_accent); // #0c0608 / #0055ff
+  bg = mix(bg, sectionCol, settle);
 
   float rh = ${CONFIG.ring.radius}*u_zoom;
   float sigma = mix(${CONFIG.ring.sharp.toFixed(1)}, ${CONFIG.ring.soft.toFixed(1)}, smoothstep(0.0,0.6,dive));
@@ -189,8 +200,8 @@ void main(){
 // ============================================================================
 //  §4 · MATH HELPERS
 // ============================================================================
-const seg     = (p, a, b) => Math.min(Math.max((p - a) / (b - a), 0), 1);
-const smooth  = (t) => t * t * (3 - 2 * t);
+const seg = (p, a, b) => Math.min(Math.max((p - a) / (b - a), 0), 1);
+const smooth = (t) => t * t * (3 - 2 * t);
 const logZoom = (t, start, max) => start * Math.exp(smooth(t) * Math.log(max / start));
 
 // ============================================================================
@@ -255,22 +266,22 @@ class TextEngine {
     const padX = W * (this.mobile ? 0.07 : 0.05);
     const topY = H * (this.mobile ? 0.34 : 0.42);
     // MOBILE: smaller headline + tighter line height so nothing clips
-    const big = Math.floor(H * (this.mobile ? 0.062 : 0.090));
+    const big = Math.floor(H * (this.mobile ? 0.062 : 0.12));
     const small = Math.floor(H * (this.mobile ? 0.014 : 0.018));
     const lh = big * 1.05;
     const sp = big * -0.02;
 
     if (beat === "A") {
-      this._badge("PORTFOLIO PROTOCOL // ACTIVE", padX, topY - big * 0.7, small);
+      // this._badge("PORTFOLIO PROTOCOL // ACTIVE", padX, topY - big * 0.7, small);
       this._heavy("ENGINEERING", padX, topY + big, big, sp, false);
       this._heavy("THE NEXT", padX, topY + big + lh, big, sp, false);
       this._heavy("GENERATION.", padX, topY + big + lh * 2, big, sp, true);
     } else if (beat === "B") {
-      this._badge("TRACK RECORD // VERIFIED", padX, topY - big * 0.7, small);
+      // this._badge("TRACK RECORD // VERIFIED", padX, topY - big * 0.7, small);
       this._heavy("SENIOR", padX, topY + big, big * 0.9, sp, false);
       this._heavy("SOFTWARE", padX, topY + big + lh * 0.9, big * 0.9, sp, false);
       this._heavy("ENGINEER", padX, topY + big + lh * 1.8, big * 0.9, sp, true);
-      const stats = [["5+", "YRS"], ["42%", "PERF"], ["500+", "COMMITS"]];
+      const stats = [["5+", "YRS"], ["500+", "COMMITS"]];
       const fam = this.ready ? CONFIG.font.family : "Arial, sans-serif";
       let sx = padX; const sy = topY + big + lh * 2.85;
       const gap = this.mobile ? W * 0.27 : W * 0.18;
@@ -280,10 +291,10 @@ class TextEngine {
         sx += gap;
       });
     } else if (beat === "C") {
-      this._badge("SYSTEMS // READY", padX, topY - big * 0.7, small);
-      this._heavy("NOW", padX, topY + big, big, sp, false);
-      this._heavy("ENTERING", padX, topY + big + lh, big, sp, false);
-      this._heavy("DEEP SPACE.", padX, topY + big + lh * 2, big, sp, true);
+      // this._badge("SYSTEMS // READY", padX, topY - big * 0.7, small);
+      this._heavy("OPEN TO ", padX, topY + big, big, sp, false);
+      this._heavy(" TO ", padX, topY + big + lh, big, sp, false);
+      this._heavy("BUILDING NEXT..", padX, topY + big + lh * 2, big, sp, true);
     }
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
@@ -305,6 +316,7 @@ export default function HeroCinematic({ theme = "dark" }) {
   const mouseRef = useRef({ x: 0.5, y: 0.5, lastMove: 0 });
   const feedRef = useRef({ down: false, t: 0 });
   const visibleRef = useRef(true);     // pause rendering when hero off-screen
+  const arrivalRef = useRef(null);
 
   const S = useRef({
     zoom: CONFIG.zoom.start, form: 0, dive: 0, shift: 0,
@@ -372,7 +384,7 @@ export default function HeroCinematic({ theme = "dark" }) {
 
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     const aPos = gl.getAttribLocation(prog, "a_pos");
     gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
@@ -401,9 +413,9 @@ export default function HeroCinematic({ theme = "dark" }) {
 
       const now = performance.now(), t = (now - start) / 1000, st = S.current;
 
-      st.zoom  += (st.zoomT  - st.zoom ) * CONFIG.ease.uZoom;
-      st.form  += (st.formT  - st.form ) * CONFIG.ease.uForm;
-      st.dive  += (st.diveT  - st.dive ) * CONFIG.ease.uDive;
+      st.zoom += (st.zoomT - st.zoom) * CONFIG.ease.uZoom;
+      st.form += (st.formT - st.form) * CONFIG.ease.uForm;
+      st.dive += (st.diveT - st.dive) * CONFIG.ease.uDive;
       st.shift += (st.shiftT - st.shift) * CONFIG.ease.uShift;
       birth += (1 - birth) * CONFIG.ease.birth;
 
@@ -507,11 +519,14 @@ export default function HeroCinematic({ theme = "dark" }) {
               return { alpha, shift };
             };
             const A = evalBeat(W.beatA), B = evalBeat(W.beatB), C = evalBeat(W.beatC);
-            if (A.alpha >= B.alpha && A.alpha >= C.alpha)      { st.beat = "A"; st.textAlpha = A.alpha; st.shiftT = A.shift; }
-            else if (B.alpha >= C.alpha)                       { st.beat = "B"; st.textAlpha = B.alpha; st.shiftT = B.shift; }
-            else                                               { st.beat = "C"; st.textAlpha = C.alpha; st.shiftT = C.shift; }
+            if (A.alpha >= B.alpha && A.alpha >= C.alpha) { st.beat = "A"; st.textAlpha = A.alpha; st.shiftT = A.shift; }
+            else if (B.alpha >= C.alpha) { st.beat = "B"; st.textAlpha = B.alpha; st.shiftT = B.shift; }
+            else { st.beat = "C"; st.textAlpha = C.alpha; st.shiftT = C.shift; }
 
             gsap.set(lineRef.current, { scaleY: p });
+
+            const arrival = smooth(seg(p, 0.9999, 1));
+            gsap.set(arrivalRef.current, { opacity: arrival });
           },
         },
       });
@@ -550,7 +565,7 @@ export default function HeroCinematic({ theme = "dark" }) {
         // if (prog > 0.72) return;
         // const target = nearestLock(prog);
         const dir = stRef.direction;            // 1 = scrolled down, -1 = up
-  // current lock you're sitting on/just left
+        // current lock you're sitting on/just left
         let curIdx = 0, bd = Infinity;
         LOCKS.forEach((v, i) => { const d = Math.abs(v - prog); if (d < bd) { bd = d; curIdx = i; } });
 
@@ -616,7 +631,7 @@ export default function HeroCinematic({ theme = "dark" }) {
   const noPointer = { pointerEvents: "none" };
   return (
     <main ref={sectionRef} id="hero"
-      style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: "#000" }}>
+      style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: theme === "dark" ? "#0c0608" : "#0055ff", }}>
       <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", ...noPointer }} />
 
       <div ref={bigNameRef} className="hero-name" style={{
@@ -645,6 +660,25 @@ export default function HeroCinematic({ theme = "dark" }) {
       <div style={{ position: "absolute", right: "1.2vw", top: "15vh", bottom: "15vh", width: 2, background: "rgba(255,255,255,0.08)", zIndex: 3, ...noPointer }}>
         <div ref={lineRef} style={{ width: "100%", height: "100%", background: pal.accent }} />
       </div>
+
+      
+      <div ref={arrivalRef} style={{
+        position: "absolute", inset: 0, zIndex: 5,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        textAlign: "center", opacity: 0, ...noPointer,
+        fontFamily: `${CONFIG.font.family}, sans-serif`,
+      }}>
+        <span style={{
+          fontSize: "0.8rem", fontWeight: 700, letterSpacing: "4px",
+          textTransform: "uppercase",
+          color: theme === "dark" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)",
+          marginBottom: "1rem",
+        }}>
+          CONTINUE
+        </span>
+      </div>
+      {/* <K2Reveal theme={theme}/> */}
     </main>
   );
 }

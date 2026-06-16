@@ -4,18 +4,18 @@ const baseStyles = {
   body: {
     margin: 0,
     padding: 0,
-    left:0,
-    right:0,
+    left: 0,
+    right: 0,
     width: "100%",
     minHeight: "100vh",
     overflowX: "hidden",
     boxSizing: "border-box",
   },
-  nav: { 
-    position: "fixed", top: 0, width: "100%", 
-    padding: "var(--nav-padding, 2rem 4rem)", 
-    display: "flex", flexDirection: "var(--nav-dir, row)", 
-    justifyContent: "space-between", alignItems: "center", 
+  nav: {
+    position: "fixed", top: 0, width: "100%",
+    padding: "var(--nav-padding, 2rem 4rem)",
+    display: "flex", flexDirection: "var(--nav-dir, row)",
+    justifyContent: "space-between", alignItems: "center",
     zIndex: 1000, boxSizing: "border-box", gap: "1rem",
   },
   logo: { fontWeight: 900, letterSpacing: "-1px" },
@@ -28,13 +28,13 @@ const baseStyles = {
   marqueeWrapper: { padding: "1.5rem 0", overflow: "hidden", display: "flex", whiteSpace: "nowrap" },
   marqueeContent: { display: "flex" },
   marqueeText: { fontSize: "clamp(1.75rem, 4vw, 4rem)", fontWeight: 900, textTransform: "uppercase", paddingRight: "2rem" },
-  
+
 
   skillssection: { maxWidth: "100%", margin: "0 auto", padding: "var(--section-padding, 8rem 2rem)" },
   section: { maxWidth: "1200px", margin: "0 auto", padding: "var(--section-padding, 8rem 2rem)" },
   sectionHeader: { marginBottom: "4rem", textAlign: "left" },
   h2: { fontSize: "clamp(2rem, 4vw, 4rem)", fontWeight: 900, textTransform: "uppercase", margin: 0, letterSpacing: "-1px" },
-  
+
 
 
   skillsGrid: { display: "grid", gridTemplateColumns: "var(--grid-columns-skills, repeat(auto-fit, minmax(300px, 1fr)))", gap: "2rem" },
@@ -67,7 +67,7 @@ const baseStyles = {
   modalBtnFilled: { display: "inline-block", padding: "0.8rem 1.5rem", borderRadius: "30px", textDecoration: "none", fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase", marginRight: "1rem" },
   modalBtnOutline: { display: "inline-block", padding: "0.8rem 1.5rem", borderRadius: "30px", textDecoration: "none", fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase", border: "1px solid" },
 
-  fanViewport: { position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", height: "var(--fan-height, 650px)", marginTop: "4rem", overflow: "hidden"},
+  fanViewport: { position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", height: "var(--fan-height, 650px)", marginTop: "4rem", overflow: "hidden" },
   fanCard: { position: "absolute", bottom: "40px", left: "50%", marginLeft: "-120px", width: "240px", height: "380px", borderRadius: "24px", backgroundSize: "cover", backgroundPosition: "center", transition: "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s, z-index 0.5s", cursor: "pointer", display: "flex", alignItems: "flex-end", padding: "1.5rem", boxSizing: "border-box" },
   cardLabel: { width: "100%", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(5px)", color: "#fff", padding: "0.8rem", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", textAlign: "center", transition: "opacity 0.3s, transform 0.3s" },
   arcViewport: { position: "relative", width: "100%", maxWidth: "800px", height: "450px", display: "flex", justifyContent: "center", alignItems: "flex-end", marginTop: "2rem" },
@@ -96,7 +96,11 @@ export const styles = {
     body: { ...baseStyles.body, backgroundColor: "#080808", color: "#ffffff", "--accent": "#ff4d00", "--text-muted": "#888" },
     // nav: { ...baseStyles.nav, background: "linear-gradient(to bottom, #080808 50%, transparent)" },
     nav: { ...baseStyles.nav, background: "transparent" },
-    link: { ...baseStyles.link, color: "#777" },
+    link: {
+      ...baseStyles.link, color: "#777", position: "relative",
+      padding: "0.3rem 0",
+      transition: "color 0.25s",
+    },
     toggleButton: { background: "#111", border: "1px solid #ff4d00", color: "#ff4d00", padding: "0.5rem 1.2rem", borderRadius: "20px", cursor: "pointer", fontWeight: 700, fontSize: "0.8rem" },
     badge: { ...baseStyles.badge, color: "#ff4d00" },
     heroDesc: { ...baseStyles.heroDesc, color: "#888" },
